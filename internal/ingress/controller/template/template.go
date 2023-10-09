@@ -118,7 +118,12 @@ func (t *Template) Write(conf config.TemplateConfig) ([]byte, error) {
 		return tmplBuf.Bytes(), nil
 	}
 
-	return outCmdBuf.Bytes(), nil
+	// make a copy to ensure that we are no longer modifying the content of the buffer
+	out := outCmdBuf.Bytes()
+	res := make([]byte, len(out))
+	copy(res, out)
+
+	return res, nil
 }
 
 var (
