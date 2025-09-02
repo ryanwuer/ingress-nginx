@@ -1,6 +1,7 @@
 local resolver = require("resty.dns.resolver")
 local lrucache = require("resty.lrucache")
 local resolv_conf = require("util.resolv_conf")
+local hosts = require("util.hosts")
 
 local ngx_log = ngx.log
 local ngx_INFO = ngx.INFO
@@ -92,6 +93,16 @@ function _M.lookup(host)
   local cached_addresses = cache:get(host)
   if cached_addresses then
     return cached_addresses
+  end
+
+  -- 首先尝试从 /etc/hosts 文件解析
+  local hosts_ips = hosts.lookup(host)
+  if hosts_ips and #hosts_ips > 0 then
+    ngx_log(ngx_INFO, string_format("resolved '%s' from /etc/hosts: [%s]",
+      host, table_concat(hosts_ips, ", ")))
+    -- 将hosts解析结果缓存，使用较短的TTL（60秒）以便及时更新
+    cache_set(host, hosts_ips, 60)
+    return hosts_ips
   end
 
   local r, err = resolver:new{
