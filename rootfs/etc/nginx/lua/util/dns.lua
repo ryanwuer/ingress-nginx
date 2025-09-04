@@ -100,8 +100,7 @@ function _M.lookup(host)
   if hosts_ips and #hosts_ips > 0 then
     ngx_log(ngx_INFO, string_format("resolved '%s' from /etc/hosts: [%s]",
       host, table_concat(hosts_ips, ", ")))
-    -- 将hosts解析结果缓存，使用较短的TTL（60秒）以便及时更新
-    cache_set(host, hosts_ips, 60)
+    cache_set(host, hosts_ips, MAXIMUM_TTL_VALUE)
     return hosts_ips
   end
 

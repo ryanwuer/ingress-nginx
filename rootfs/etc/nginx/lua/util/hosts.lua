@@ -1,20 +1,16 @@
 local ngx_re_split = require("ngx.re").split
-local string_format = string.format
 local string_lower = string.lower
 local string_gsub = string.gsub
 local ipairs = ipairs
-local pairs = pairs
 
 local ngx_log = ngx.log
 local ngx_INFO = ngx.INFO
-local ngx_ERR = ngx.ERR
 local ngx_WARN = ngx.WARN
 
 local HOSTS_PATH = "/etc/hosts"
 
 local _M = {}
 local hosts_cache = {}
-local last_modified = 0
 
 -- 检查IP地址是否为IPv4格式
 local function is_ipv4(ip)
@@ -100,35 +96,11 @@ local function load_hosts_file()
   return new_hosts
 end
 
--- 获取文件的修改时间
-local function get_file_mtime(filepath)
-  local attr = lfs and lfs.attributes(filepath, "modification")
-  return attr or 0
-end
-
--- 检查hosts文件是否需要重新加载
-local function should_reload_hosts()
-  local current_mtime = get_file_mtime(HOSTS_PATH)
-  return current_mtime > last_modified
-end
-
--- 重新加载hosts文件（如果需要）
-local function reload_hosts_if_needed()
-  if should_reload_hosts() then
-    hosts_cache = load_hosts_file()
-    last_modified = get_file_mtime(HOSTS_PATH)
-    ngx_log(ngx_INFO, "reloaded hosts file due to modification")
-  end
-end
-
 -- 从hosts文件查找主机名对应的IP地址
 function _M.lookup(hostname)
   if not hostname or hostname == "" then
     return nil
   end
-  
-  -- 重新加载hosts文件（如果需要）
-  reload_hosts_if_needed()
   
   -- 转换为小写进行查找
   local lower_hostname = string_lower(hostname)
@@ -142,43 +114,10 @@ function _M.lookup(hostname)
   return nil
 end
 
--- 检查主机名是否存在于hosts文件中
-function _M.exists(hostname)
-  if not hostname or hostname == "" then
-    return false
-  end
-  
-  reload_hosts_if_needed()
-  local lower_hostname = string_lower(hostname)
-  return hosts_cache[lower_hostname] ~= nil
-end
-
--- 获取所有hosts条目（用于调试）
-function _M.get_all_hosts()
-  reload_hosts_if_needed()
-  return hosts_cache
-end
-
--- 强制重新加载hosts文件
-function _M.reload()
-  hosts_cache = load_hosts_file()
-  last_modified = get_file_mtime(HOSTS_PATH)
-  ngx_log(ngx_INFO, "force reloaded hosts file")
-end
-
 -- 初始化：加载hosts文件
 do
-  -- 尝试加载lfs模块用于文件时间检查
-  local ok
-  ok, lfs = pcall(require, "lfs")
-  if not ok then
-    ngx_log(ngx_WARN, "lfs module not available, hosts file modification time checking disabled")
-    lfs = nil
-  end
-  
   -- 初始加载hosts文件
   hosts_cache = load_hosts_file()
-  last_modified = get_file_mtime(HOSTS_PATH)
 end
 
 return _M
